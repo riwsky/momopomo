@@ -1,15 +1,5 @@
 [%bs.raw {|require('./semantic/semantic.css')|}];
 
-module DateTime = {
-    type t;
-    [@bs.send] external local: t => t = "";
-    [@bs.send.pipe: t] external toString: string = "";
-};
-
-[@bs.module "luxon"] external dateTime : DateTime.t = "DateTime";
-
-let zz = DateTime.local(dateTime) |> DateTime.toString;
-
 type action = Play | Pause | Stop;
 
 module PlayButton = {
@@ -24,7 +14,7 @@ module PlayButton = {
     };
 };
 
-type status = Ready | Playing | Paused;
+type status = Ready | PlayingSince(Luxon.DateTime.t) | PausedAfter(Luxon.Duration.t);
 
 let component = ReasonReact.reducerComponent("Execute");
 
@@ -33,14 +23,19 @@ let make = (_children) => {
     initialState: () => Ready,
     reducer: (action, state) => {
         switch action {
-        | Play => ReasonReact.Update(Playing)
-        | Pause => ReasonReact.Update(Paused)
+        | Play => ReasonReact.Update(PlayingSince(Luxon.DateTime.localNow()))
+        | Pause => switch state {
+        | Ready => ReasonReact.NoUpdate
+        | PlayingSince(someTime) => ReasonReact.Update(
+                    PausedAfter(Luxon.DateTime.diff(Luxon.DateTime.localNow(), someTime)))
+        | PausedAfter(_) => ReasonReact.NoUpdate 
+        }
         | Stop => ReasonReact.Update(Ready)
         }
     },
     render: (_self) => 
     <div>
-        <p> (ReasonReact.stringToElement("Omg hello world amirite" ++ zz)) </p>
+        <p> (ReasonReact.stringToElement("Omg hello world amirite" ++ Luxon.zz)) </p>
         <PlayButton/>
     </div>
 };

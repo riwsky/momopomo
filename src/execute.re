@@ -6,6 +6,7 @@ type action =
   | Play
   | Pause
   | Stop
+  | Toggle
   | Tick(Luxon.DateTime.t);
 
 module type ButtonInfo = {
@@ -17,12 +18,12 @@ module type ButtonInfo = {
 
 module Button = (Info: ButtonInfo) => {
   let component = ReasonReact.statelessComponent(Info.getName ++ "Button");
-  let make = (~reducer, _children) => {
+  let make = (~sender, _children) => {
     ...component,
     render: _self =>
       <button
         className=("ui labeled icon button " ++ Info.getColor)
-        onClick=(reducer(_event => Info.getAction))>
+        onClick=(_event => sender(Info.getAction))>
         <i className=(Info.getIconName ++ " icon") />
         (s2e(Info.getName))
       </button>
@@ -68,17 +69,18 @@ type status =
 
 type state = {
   now: Luxon.DateTime.t,
-  status,
-  intervalId: option(Js.Global.intervalId)
+  status
 };
 
 let component = ReasonReact.reducerComponent("Execute");
 
-let timeLeft: state => Luxon.Duration.t = ({now, status}) =>
+let timeLeft: state => Luxon.Duration.t =
+  ({now, status}) =>
     switch status {
-        | Ready => pomoDuration
-        | PlayingSince(someTime) => Luxon.Duration.minus(pomoDuration, Luxon.DateTime.diff(now, someTime))
-        | PausedAfter(someDur) => Luxon.Duration.minus(pomoDuration, someDur)
+    | Ready => pomoDuration
+    | PlayingSince(someTime) =>
+      Luxon.Duration.minus(pomoDuration, Luxon.DateTime.diff(now, someTime))
+    | PausedAfter(someDur) => Luxon.Duration.minus(pomoDuration, someDur)
     };
 
 let mmSs: Luxon.Duration.t => string =
@@ -86,21 +88,52 @@ let mmSs: Luxon.Duration.t => string =
 
 let make = _children => {
   ...component,
-  initialState: () => {now: Luxon.DateTime.localNow(), status: Ready, intervalId: None},
-  didMount: self => ReasonReact.Update({...self.state,
-    intervalId: Some(Js.Global.setInterval(self.reduce((_) => Tick(Luxon.DateTime.localNow())), 1000))}),
+  initialState: () => {now: Luxon.DateTime.localNow(), status: Ready},
+  subscriptions: self => {
+    let listener = event =>
+      if (event##key == " ") {
+        event##preventDefault();
+        self.send(Toggle);
+      };
+    [
+      Sub(
+        () =>
+          Js.Global.setInterval(
+            () => self.send(Tick(Luxon.DateTime.localNow())),
+            1000
+          ),
+        Js.Global.clearInterval
+      ),
+      Sub(
+        () => Listeners.add("keydown", listener),
+        (_) => Listeners.remove("keydown", listener)
+      )
+    ];
+  },
   reducer: (action, state) =>
     switch action {
+    | Toggle =>
+      let action =
+        switch state.status {
+        | PlayingSince(_) => Pause
+        | _ => Play
+        };
+      ReasonReact.SideEffects((self => self.send(action)));
     | Tick(newNow) =>
       let newStatus =
         switch state.status {
-        | PlayingSince(someTime) when Luxon.DateTime.(asEpochMillis(someTime) <= asEpochMillis(minus(newNow, pomoDuration))) =>
-              Ready;
+        | PlayingSince(someTime)
+            when
+              Luxon.DateTime.(
+                asEpochMillis(someTime)
+                <= asEpochMillis(minus(newNow, pomoDuration))
+              ) =>
+          Ready
         | PlayingSince(_)
         | Ready
         | PausedAfter(_) => state.status
         };
-      ReasonReact.Update({...state, now: newNow, status: newStatus});
+      ReasonReact.Update({now: newNow, status: newStatus});
     | Play =>
       switch state.status {
       | Ready =>
@@ -126,19 +159,19 @@ let make = _children => {
     },
   render: self =>
     <div>
-      <p> (s2e("Omg hello world amirite Time Left: " ++ mmSs(timeLeft(self.state)))) </p>
+      <h1> (s2e(mmSs(timeLeft(self.state)))) </h1>
       (
         switch self.state.status {
-        | Ready => <PlayButton reducer=self.reduce />
+        | Ready => <PlayButton sender=self.send />
         | PlayingSince(_) =>
           <div>
-            <PauseButton reducer=self.reduce />
-            <StopButton reducer=self.reduce />
+            <PauseButton sender=self.send />
+            <StopButton sender=self.send />
           </div>
         | PausedAfter(_) =>
           <div>
-            <PlayButton reducer=self.reduce />
-            <StopButton reducer=self.reduce />
+            <PlayButton sender=self.send />
+            <StopButton sender=self.send />
           </div>
         }
       )

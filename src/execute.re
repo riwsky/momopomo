@@ -62,6 +62,8 @@ module PauseButton =
 
 let pomoDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 25);
 
+Notifications.requestPermission((_) => ());
+
 type status =
   | Ready
   | PlayingSince(Luxon.DateTime.t)
@@ -120,20 +122,19 @@ let make = _children => {
         };
       ReasonReact.SideEffects((self => self.send(action)));
     | Tick(newNow) =>
-      let newStatus =
-        switch state.status {
-        | PlayingSince(someTime)
-            when
-              Luxon.DateTime.(
-                asEpochMillis(someTime)
-                <= asEpochMillis(minus(newNow, pomoDuration))
-              ) =>
-          Ready
-        | PlayingSince(_)
-        | Ready
-        | PausedAfter(_) => state.status
-        };
-      ReasonReact.Update({now: newNow, status: newStatus});
+      switch state.status {
+      | PlayingSince(someTime)
+          when
+            Luxon.DateTime.(
+              asEpochMillis(someTime)
+              <= asEpochMillis(minus(newNow, pomoDuration))
+            ) =>
+        ReasonReact.UpdateWithSideEffects(
+          {now: newNow, status: Ready},
+          ((_) => Notifications.create_notification("Timer finished!"))
+        )
+      | _ => ReasonReact.Update({now: newNow, status: state.status})
+      }
     | Play =>
       switch state.status {
       | Ready =>

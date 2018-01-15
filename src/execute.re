@@ -61,6 +61,7 @@ module PauseButton =
   );
 
 let pomoDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 25);
+
 let breakDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 5);
 
 Notifications.requestPermission((_) => ());
@@ -132,6 +133,7 @@ let make = _children => {
         Luxon.DateTime.(
           asEpochMillis(sinceTime) <= asEpochMillis(minus(newNow, duration))
         );
+      let timeString = mmSs(timeLeft({now:newNow, status:state.status}));
       switch state.status {
       | PlayingSince(someTime) when past(someTime, pomoDuration) =>
         ReasonReact.UpdateWithSideEffects(
@@ -148,7 +150,11 @@ let make = _children => {
           {now: newNow, status: Ready},
           ((_) => Notifications.create_notification("Break finished!"))
         )
-      | _ => ReasonReact.Update({now: newNow, status: state.status})
+      | _ =>
+        ReasonReact.UpdateWithSideEffects(
+          {now: newNow, status: state.status},
+          ((_) => Notifications.set_title(timeString))
+        )
       };
     | Play =>
       switch state.status {

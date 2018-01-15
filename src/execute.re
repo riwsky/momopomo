@@ -61,13 +61,15 @@ module PauseButton =
   );
 
 let pomoDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 25);
+let breakDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 5);
 
 Notifications.requestPermission((_) => ());
 
 type status =
   | Ready
   | PlayingSince(Luxon.DateTime.t)
-  | PausedAfter(Luxon.Duration.t);
+  | PausedAfter(Luxon.Duration.t)
+  | BreakingSince(Luxon.DateTime.t);
 
 type state = {
   now: Luxon.DateTime.t,
@@ -77,13 +79,16 @@ type state = {
 let component = ReasonReact.reducerComponent("Execute");
 
 let timeLeft: state => Luxon.Duration.t =
-  ({now, status}) =>
+  ({now, status}) => {
+    let leftWith = (duration, someTime) =>
+      Luxon.Duration.minus(duration, Luxon.DateTime.diff(now, someTime));
     switch status {
     | Ready => pomoDuration
-    | PlayingSince(someTime) =>
-      Luxon.Duration.minus(pomoDuration, Luxon.DateTime.diff(now, someTime))
+    | PlayingSince(someTime) => leftWith(pomoDuration, someTime)
+    | BreakingSince(someTime) => leftWith(breakDuration, someTime)
     | PausedAfter(someDur) => Luxon.Duration.minus(pomoDuration, someDur)
     };
+  };
 
 let mmSs: Luxon.Duration.t => string =
   dur => Luxon.Duration.toFormat(dur, "mm:ss");
@@ -118,19 +123,19 @@ let make = _children => {
       let action =
         switch state.status {
         | PlayingSince(_) => Pause
+        | BreakingSince(_) => Stop
         | _ => Play
         };
       ReasonReact.SideEffects((self => self.send(action)));
     | Tick(newNow) =>
+      let past = (sinceTime, duration) =>
+        Luxon.DateTime.(
+          asEpochMillis(sinceTime) <= asEpochMillis(minus(newNow, duration))
+        );
       switch state.status {
-      | PlayingSince(someTime)
-          when
-            Luxon.DateTime.(
-              asEpochMillis(someTime)
-              <= asEpochMillis(minus(newNow, pomoDuration))
-            ) =>
+      | PlayingSince(someTime) when past(someTime, pomoDuration) =>
         ReasonReact.UpdateWithSideEffects(
-          {now: newNow, status: Ready},
+          {now: newNow, status: BreakingSince(newNow)},
           (
             (_) => {
               Notifications.create_notification("Timer finished!");
@@ -138,13 +143,19 @@ let make = _children => {
             }
           )
         )
+      | BreakingSince(someTime) when past(someTime, breakDuration) =>
+        ReasonReact.UpdateWithSideEffects(
+          {now: newNow, status: Ready},
+          ((_) => Notifications.create_notification("Break finished!"))
+        )
       | _ => ReasonReact.Update({now: newNow, status: state.status})
-      }
+      };
     | Play =>
       switch state.status {
       | Ready =>
         ReasonReact.Update({...state, status: PlayingSince(state.now)})
-      | PlayingSince(_) => ReasonReact.NoUpdate
+      | PlayingSince(_)
+      | BreakingSince(_) => ReasonReact.NoUpdate
       | PausedAfter(dur) =>
         ReasonReact.Update({
           ...state,
@@ -154,7 +165,8 @@ let make = _children => {
     | Pause =>
       switch state.status {
       | Ready
-      | PausedAfter(_) => ReasonReact.NoUpdate
+      | PausedAfter(_)
+      | BreakingSince(_) => ReasonReact.NoUpdate
       | PlayingSince(someTime) =>
         ReasonReact.Update({
           ...state,
@@ -174,6 +186,7 @@ let make = _children => {
             <PauseButton sender=self.send />
             <StopButton sender=self.send />
           </div>
+        | BreakingSince(_) => <StopButton sender=self.send />
         | PausedAfter(_) =>
           <div>
             <PlayButton sender=self.send />

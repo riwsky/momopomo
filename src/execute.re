@@ -1,7 +1,25 @@
+/* Timer component and associated state */
+
 [%bs.raw {|require('./semantic/semantic.css')|}];
 
-let s2e = ReasonReact.stringToElement;
+/* The states the timer component can be in. States with an active countdown
+(when playing or on break) carry a Date instead of a Duration because we aren't
+guaranteed that our timers will fire exactly once every second.
 
+See render, below.
+*/
+type status =
+  | Ready
+  | PlayingSince(Luxon.DateTime.t)
+  | PausedAfter(Luxon.Duration.t)
+  | BreakingSince(Luxon.DateTime.t);
+
+type state = {
+  now: Luxon.DateTime.t,
+  status
+};
+
+/* The type of events this component has to deal with (see reduce, below) */
 type action =
   | Play
   | Pause
@@ -9,6 +27,7 @@ type action =
   | Toggle
   | Tick(Luxon.DateTime.t);
 
+/* The info we need to make a button module */
 module type ButtonInfo = {
   let getAction: action;
   let getColor: string;
@@ -16,6 +35,10 @@ module type ButtonInfo = {
   let getName: string;
 };
 
+/* cut down on some boilerplate */
+let s2e = ReasonReact.stringToElement;
+
+/* Create a semantic ui button with an icon */
 module Button = (Info: ButtonInfo) => {
   let component = ReasonReact.statelessComponent(Info.getName ++ "Button");
   let make = (~sender, _children) => {
@@ -64,21 +87,12 @@ let pomoDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 25);
 
 let breakDuration: Luxon.Duration.t = Luxon.Duration.fromMillis(1000 * 60 * 5);
 
+/* these will just silently fail otherwise */
 Notifications.requestPermission((_) => ());
-
-type status =
-  | Ready
-  | PlayingSince(Luxon.DateTime.t)
-  | PausedAfter(Luxon.Duration.t)
-  | BreakingSince(Luxon.DateTime.t);
-
-type state = {
-  now: Luxon.DateTime.t,
-  status
-};
 
 let component = ReasonReact.reducerComponent("Execute");
 
+/* some formatting helper functions */
 let timeLeft: state => Luxon.Duration.t =
   ({now, status}) => {
     let leftWith = (duration, someTime) =>

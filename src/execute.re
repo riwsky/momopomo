@@ -131,7 +131,12 @@ let make = _children => {
             ) =>
         ReasonReact.UpdateWithSideEffects(
           {now: newNow, status: Ready},
-          ((_) => Notifications.create_notification("Timer finished!"))
+          (
+            (_) => {
+              Notifications.create_notification("Timer finished!");
+              Audio.go();
+            }
+          )
         )
       | _ => ReasonReact.Update({now: newNow, status: state.status})
       }
@@ -176,5 +181,6 @@ let make = _children => {
           </div>
         }
       )
+      Audio.tag
     </div>
 };

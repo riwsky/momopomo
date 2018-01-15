@@ -13,4 +13,6 @@ body {
 
 h1 {
   font-size: 400%;
+  padding-top: .5em;
+  padding-bottom: .25em;
 }

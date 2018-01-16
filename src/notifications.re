@@ -7,4 +7,4 @@ external requestPermission : (permission => unit) => unit = "";
 
 [@bs.val] external document : {. [@bs.set] "title": string} = "";
 
-let set_title : string => unit = str => document##title #= str;
+let set_title: string => unit = str => document##title#=str;

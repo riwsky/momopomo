@@ -40,35 +40,39 @@ let make = _children => {
              "make notifications work",
              {estimated: 2, soFar: 2, completed: true}
            )
-        |> add("implement the log", {estimated: 2, soFar: 1, completed: false})
+        |> add(
+             "implement the log",
+             {estimated: 2, soFar: 1, completed: false}
+           )
         |> add("whistle aimlessly", {estimated: 1, soFar: 0, completed: false})
       ),
     selected: 0,
     editing: false
   },
-  subscriptions: (self) => {
-      let upListener = Listeners.forKey("ArrowUp", () => self.send(Up));
-      let downListener = Listeners.forKey("ArrowDown", () => self.send(Down));
-      [
-        Sub(
-            () => Listeners.add("keydown", upListener),
-            (_) => Listeners.remove("keydown", upListener)
-        ),
-        Sub(
-            () => Listeners.add("keydown", downListener),
-            (_) => Listeners.remove("keydown", downListener)
-        )
-      ]
+  subscriptions: self => {
+    let upListener = Listeners.forKey("ArrowUp", () => self.send(Up));
+    let downListener = Listeners.forKey("ArrowDown", () => self.send(Down));
+    [
+      Sub(
+        () => Listeners.add("keydown", upListener),
+        (_) => Listeners.remove("keydown", upListener)
+      ),
+      Sub(
+        () => Listeners.add("keydown", downListener),
+        (_) => Listeners.remove("keydown", downListener)
+      )
+    ];
   },
   reducer: (action, state) => {
-    let index = switch action {
-    | SelectEntry(named) => named
-    | Down => min(state.selected+1, StringMap.cardinal(state.entries)-1)
-    | Up => max(state.selected-1, 0)
-    | EditEntry(index) => index
-    };
+    let index =
+      switch action {
+      | SelectEntry(named) => named
+      | Down => min(state.selected + 1, StringMap.cardinal(state.entries) - 1)
+      | Up => max(state.selected - 1, 0)
+      | EditEntry(index) => index
+      };
     ReasonReact.Update({...state, selected: index});
-},
+  },
   render: self =>
     <div className="logTable">
       <table className="ui selectable celled table">
@@ -87,21 +91,21 @@ let make = _children => {
                  compare(e1.completed, e2.completed)
                )
             |> List.mapi((i, (n, e)) => {
-                let selected = i == self.state.selected;
-
+                 let selected = i == self.state.selected;
                  <tr
-                   className=(
-                     (selected ? "active " : "")
-                   )
+                   className=(selected ? "active " : "")
                    onClick=((_) => self.send(SelectEntry(i)))>
                    <td>
-                    <div className="ui ribbon label"> <i className="edit icon"></i>
-                    </div>(s2e(n))</td>
+                     <div className="ui ribbon label">
+                       <i className="edit icon" />
+                     </div>
+                     (s2e(n))
+                   </td>
                    <td> (s2e(string_of_int(e.estimated))) </td>
                    <td> (s2e(string_of_int(e.soFar))) </td>
                    <td> (s2e(e.completed ? "Yep" : "Not Yet!")) </td>
-                 </tr>}
-               )
+                 </tr>;
+               })
             |> Array.of_list;
           ReasonReact.createDomElement(
             "tbody",

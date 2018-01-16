@@ -1,13 +1,12 @@
 /* Timer component and associated state */
-
 [%bs.raw {|require('./semantic/semantic.css')|}];
 
 /* The states the timer component can be in. States with an active countdown
-(when playing or on break) carry a Date instead of a Duration because we aren't
-guaranteed that our timers will fire exactly once every second.
+   (when playing or on break) carry a Date instead of a Duration because we aren't
+   guaranteed that our timers will fire exactly once every second.
 
-See render, below.
-*/
+   See render, below.
+   */
 type status =
   | Ready
   | PlayingSince(Luxon.DateTime.t)
@@ -143,7 +142,7 @@ let make = _children => {
         Luxon.DateTime.(
           asEpochMillis(sinceTime) <= asEpochMillis(minus(newNow, duration))
         );
-      let timeString = mmSs(timeLeft({now:newNow, status:state.status}));
+      let timeString = mmSs(timeLeft({now: newNow, status: state.status}));
       switch state.status {
       | PlayingSince(someTime) when past(someTime, pomoDuration) =>
         ReasonReact.UpdateWithSideEffects(

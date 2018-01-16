@@ -112,11 +112,7 @@ let make = _children => {
   ...component,
   initialState: () => {now: Luxon.DateTime.localNow(), status: Ready},
   subscriptions: self => {
-    let listener = event =>
-      if (event##key == " ") {
-        event##preventDefault();
-        self.send(Toggle);
-      };
+    let listener = Listeners.forKey(" ", () => self.send(Toggle));
     [
       Sub(
         () =>

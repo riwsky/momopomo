@@ -156,6 +156,7 @@ let make = _children => {
             (_) => {
               Notifications.create_notification("Timer finished!");
               Audio.go();
+              Js.log("Timer finished!");
             }
           )
         )

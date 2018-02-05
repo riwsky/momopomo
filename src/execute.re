@@ -215,5 +215,6 @@ let make = _children => {
           </div>
         }
       )
+      Audio.tag
     </div>
 };
